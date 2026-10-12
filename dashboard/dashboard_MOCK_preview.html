@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgroLab — pre-visualizacao</title>
+<!--
+  AgroLab — VERSAO MOCKADA. Nao se conecta a nenhuma ESP32.
+  Gera dados falsos para validar a interface antes da montagem.
+  Para uso real: dashboard_local_usb.html
+-->
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --bg:#f1f5ee; --pane:#ffffff; --frame:#d9e3d4; --frame-2:#eef3ec;
+  --ink:#16241c; --muted:#6a7a6e; --leaf:#1f6b47; --leaf-soft:#e6f0e8;
+  --alarm:#b3261e; --alarm-soft:#fdeceb; --amber:#9a6b16;
+  --dark:#101810;
+  --r:14px;
+}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  font-size:15px; line-height:1.5;
+  padding:22px 20px 60px;
+}
+.wrap{max-width:1180px;margin:0 auto}
+
+/* ---- topo ---- */
+.rail{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.mark{display:flex;align-items:center;gap:10px}
+.mark svg{display:block}
+.wordmark{font-size:1.5rem;font-weight:700;letter-spacing:-.022em;color:var(--leaf)}
+.wordmark span{font-weight:400;color:var(--ink)}
+.tag{font-size:.78rem;color:var(--muted);border-left:1px solid var(--frame);padding-left:14px}
+.rail .spacer{flex:1}
+.pill{
+  display:inline-flex;align-items:center;gap:7px;font-size:.78rem;
+  background:var(--pane);border:1px solid var(--frame);border-radius:999px;padding:6px 12px;color:var(--muted)
+}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:#b6c2b8}
+.pill.live .dot{background:var(--leaf)}
+.pill.off .dot{background:#b6c2b8}
+
+/* ---- linha de condicao (hero) ---- */
+.condition{
+  background:var(--pane);border:1px solid var(--frame);border-left:4px solid var(--leaf);
+  border-radius:var(--r);padding:16px 20px;margin:16px 0 22px;
+}
+.condition p{margin:0;font-size:1.12rem;line-height:1.45;letter-spacing:-.01em}
+.condition .sub{margin-top:5px;font-size:.82rem;color:var(--muted)}
+.condition.alert{border-left-color:var(--alarm);background:var(--alarm-soft)}
+
+/* ---- barra de acoes ---- */
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+button,select{
+  font:inherit;font-size:.85rem;color:var(--ink);background:var(--pane);
+  border:1px solid var(--frame);border-radius:9px;padding:9px 14px;cursor:pointer;
+  transition:background .12s,border-color .12s
+}
+button:hover:not(:disabled),select:hover{background:var(--frame-2);border-color:#c3d2bd}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+button.primary{background:var(--leaf);border-color:var(--leaf);color:#fff}
+button.primary:hover:not(:disabled){background:#185437}
+
+/* ---- grade de sensores ---- */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:14px;margin-bottom:26px}
+.pane{background:var(--pane);border:1px solid var(--frame);border-radius:var(--r);padding:15px 16px 12px}
+.pane h3{margin:0;font-size:.85rem;font-weight:600;color:var(--muted);letter-spacing:0}
+.pane .head{display:flex;align-items:center;gap:8px}
+.swatch{width:9px;height:9px;border-radius:2px;flex:none}
+.reading{margin:6px 0 10px;display:flex;align-items:baseline;gap:5px}
+.reading .n{font-size:1.95rem;font-weight:650;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.reading .u{font-size:.85rem;color:var(--muted)}
+.pane canvas{width:100%;height:78px;display:block;cursor:crosshair}
+.bounds{display:flex;justify-content:space-between;font-size:.68rem;color:#93a396;font-variant-numeric:tabular-nums;padding-top:3px}
+.state{font-size:1.35rem;font-weight:650;letter-spacing:-.02em;margin:10px 0 24px}
+.state.bad{color:var(--alarm)}
+.state.good{color:var(--leaf)}
+
+/* ---- paineis de controle ---- */
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:14px;align-items:start}
+.panel{background:var(--pane);border:1px solid var(--frame);border-radius:var(--r);padding:18px}
+.panel h2{margin:0 0 3px;font-size:1.02rem;font-weight:650;letter-spacing:-.015em}
+.panel .note{margin:0 0 14px;font-size:.79rem;color:var(--muted)}
+.seg{display:flex;border:1px solid var(--frame);border-radius:10px;overflow:hidden}
+.seg button{border:0;border-radius:0;flex:1;padding:10px 6px;background:var(--pane)}
+.seg button+button{border-left:1px solid var(--frame)}
+.seg button.on{background:var(--leaf-soft);color:var(--leaf);font-weight:600;box-shadow:inset 0 -2px 0 var(--leaf)}
+.presets{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.presets button{flex:1;min-width:96px;font-size:.78rem;display:flex;align-items:center;gap:7px;justify-content:center}
+.chip{width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,.12);flex:none}
+.field{display:flex;align-items:center;gap:10px;margin-top:10px}
+.field label{width:14px;font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+input[type=range]{flex:1;accent-color:var(--leaf)}
+input[type=color]{width:100%;height:44px;padding:0;border:1px solid var(--frame);border-radius:10px;background:var(--pane);cursor:pointer;margin-top:12px}
+
+/* ---- previa da fita (unica area escura, por necessidade optica) ---- */
+.stage{background:var(--dark);border-radius:11px;padding:11px;margin-top:12px}
+.stage canvas{width:100%;height:50px;display:block}
+
+/* ---- bomba ---- */
+.pumpline{display:flex;align-items:center;gap:11px;margin:4px 0 14px}
+.led{width:13px;height:13px;border-radius:50%;background:#c3cfc5;flex:none}
+.led.on{background:var(--leaf);animation:beat 1.6s ease-in-out infinite}
+.led.blocked{background:var(--alarm)}
+@keyframes beat{0%,100%{box-shadow:0 0 0 0 rgba(31,107,71,.45)}50%{box-shadow:0 0 0 7px rgba(31,107,71,0)}}
+@media (prefers-reduced-motion:reduce){.led.on{animation:none}}
+.pumpline b{font-weight:600;font-size:.98rem}
+.pumpbtns{display:flex;gap:9px}
+.pumpbtns button{flex:1;padding:12px}
+.guard{
+  display:none;margin-top:13px;background:var(--alarm-soft);border:1px solid #f3cfcc;
+  border-radius:10px;padding:11px 13px;font-size:.79rem;color:#7d1a15;line-height:1.45
+}
+.guard.show{display:block}
+.fine{font-size:.74rem;color:var(--muted);margin-top:11px;line-height:1.45}
+
+/* ---- log ---- */
+.log{
+  background:var(--pane);border:1px solid var(--frame);border-radius:var(--r);
+  padding:11px 13px;margin-top:20px;height:118px;overflow-y:auto;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.72rem;color:var(--muted)
+}
+.banner{
+  background:#fdf5e3;border:1px solid #ecdcb4;border-left:4px solid var(--amber);
+  border-radius:var(--r);padding:13px 17px;margin-bottom:18px;font-size:.85rem;color:#6b4c0f
+}
+@media(max-width:560px){
+  body{padding:16px 14px 44px}
+  .reading .n{font-size:1.7rem}
+  .condition p{font-size:1rem}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="rail">
+  <div class="mark"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+  <rect x="1" y="1" width="24" height="24" rx="7" fill="#e6f0e8" stroke="#c3d9c8"/>
+  <path d="M13 20V11" stroke="#1f6b47" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M13 12c0-3.2 2.4-5.6 5.6-5.6C18.6 9.6 16.2 12 13 12z" fill="#1f6b47"/>
+  <path d="M13 14.5c0-2.6-2-4.6-4.6-4.6C8.4 12.5 10.4 14.5 13 14.5z" fill="#4b9b6e"/>
+  <circle cx="13" cy="21" r="1.4" fill="#c9a227"/>
+</svg><div class="wordmark">Agro<span>Lab</span></div></div>
+  <div class="tag">Monitoramento de estufa</div>
+  <div class="spacer"></div>
+  <span class="pill live" id="statusPill"><span class="dot"></span><span id="statusTxt">Simulando</span></span>
+</div>
+<section class="condition" id="condition">
+  <p id="condLine">Aguardando as primeiras leituras.</p>
+  <p class="sub" id="condSub">Os graficos comecam a desenhar assim que os dados chegarem.</p>
+</section>
+<div class="banner">Dados simulados no navegador. Nenhuma placa esta conectada &mdash; use esta pagina so para conferir a interface.</div><div class="actions">
+  <button id="pauseBtn" onclick="togglePause()">Pausar simulacao</button>
+  <button onclick="clearHistory()">Limpar graficos</button>
+  <button onclick="spikeEvent()">Simular pico de vazao</button>
+  <button onclick="toggleNivel()">Alternar alarme de nivel</button>
+</div>
+<section class="grid" id="grid"></section>
+<div class="cols">
+<section class="panel">
+  <h2>Iluminacao</h2>
+  <p class="note">Fita enderecavel de 30 LEDs sobre o cultivo.</p>
+  <div class="seg">
+    <button id="btn-solid" onclick="setMode('solid')">Cor fixa</button>
+    <button id="btn-pulse" onclick="setMode('pulse')">Pulsar</button>
+    <button id="btn-rainbow" onclick="setMode('rainbow')">Transicao</button>
+  </div>
+  <div class="presets">
+    <button onclick="preset(255,180,107)" title="3000 K, luz solar quente"><span class="chip" style="background:rgb(255,180,107)"></span>Sol</button>
+    <button onclick="preset(255,0,64)" title="Vermelho 660 nm + azul 450 nm"><span class="chip" style="background:rgb(255,0,64)"></span>Cultivo</button>
+    <button onclick="preset(255,236,224)" title="5500 K, branco neutro"><span class="chip" style="background:rgb(255,236,224)"></span>Meio-dia</button>
+  </div>
+  <input type="color" id="colorPicker" value="#00ff88">
+  <div class="field"><label for="r">R</label><input type="range" id="r" min="0" max="255" value="0"></div>
+  <div class="field"><label for="g">G</label><input type="range" id="g" min="0" max="255" value="255"></div>
+  <div class="field"><label for="b">B</label><input type="range" id="b" min="0" max="255" value="136"></div>
+  <div class="stage"><canvas id="stripCv"></canvas></div>
+</section>
+<section class="panel">
+  <h2>Bomba d'agua</h2>
+  <p class="note">Acionada pela ESP-A, que decide com base na boia.</p>
+  <div class="pumpline"><span class="led" id="pumpLed"></span><b id="pumpTxt">Estado desconhecido</b></div>
+  <div class="pumpbtns">
+    <button class="primary" id="pumpOn" onclick="setPump(true)">Ligar bomba</button>
+    <button id="pumpOff" onclick="setPump(false)">Desligar</button>
+  </div>
+  <div class="guard" id="pumpGuard">
+    A boia indica nivel baixo, entao a ESP-A recusa ligar a bomba. Bomba girando sem agua queima em minutos.
+    Reponha a agua para liberar o comando.
+  </div>
+  <p class="fine">Desliga sozinha depois de 5 minutos ligada, mesmo sem receber comando. Isso protege o sistema se o cabo entre as placas soltar.</p>
+</section>
+</div>
+
+</div>
+<script>
+/* =========================================================
+   AgroLab — nucleo compartilhado
+   Definicao dos sensores, motor de graficos e renderizacao.
+   Sem bibliotecas externas: tudo precisa abrir offline.
+   ========================================================= */
+const SENSORS={
+ tempAgua:{label:"Temperatura da agua", unit:"\u00b0C",    color:"#2b7fa8", chart:true},
+ tempAr:  {label:"Temperatura do ar",   unit:"\u00b0C",    color:"#c2703d", chart:true},
+ umidade: {label:"Umidade do ar",       unit:"%",          color:"#3e8e6b", chart:true},
+ lux:     {label:"Luminosidade",        unit:"lux",        color:"#c9a227", chart:true},
+ vazao:   {label:"Vazao",               unit:"L/min",      color:"#6e5aa8", chart:true},
+ tds:     {label:"Condutividade",       unit:"ppm",        color:"#b0568b", chart:true},
+ phRaw:   {label:"pH",                  unit:"leitura ADC",color:"#2e9187", chart:true},
+ nivelBaixo:{label:"Nivel do reservatorio", unit:"",       color:"#b3261e", chart:false}
+};
+const MAX_POINTS=60;
+const history={}, stamps={};
+Object.keys(SENSORS).forEach(k=>{history[k]=[];stamps[k]=[];});
+const hover={};                       // indice sob o cursor, por sensor
+
+function buildCards(){
+  const g=document.getElementById('grid'); g.innerHTML='';
+  for(const k in SENSORS){
+    const s=SENSORS[k];
+    g.insertAdjacentHTML('beforeend', s.chart
+      ? `<article class="pane">
+           <div class="head"><span class="swatch" style="background:${s.color}"></span><h3>${s.label}</h3></div>
+           <p class="reading"><span class="n" id="val-${k}">&ndash;&ndash;</span><span class="u">${s.unit}</span></p>
+           <canvas id="cv-${k}"></canvas>
+           <div class="bounds"><span id="min-${k}"></span><span id="max-${k}"></span></div>
+         </article>`
+      : `<article class="pane">
+           <div class="head"><span class="swatch" style="background:${s.color}"></span><h3>${s.label}</h3></div>
+           <p class="state" id="val-${k}">&ndash;&ndash;</p>
+         </article>`);
+  }
+  // Redesenha quando o painel muda de largura, nao so quando a janela muda.
+  // E o que faz o grafico acompanhar o rearranjo da grade de verdade.
+  const ro=new ResizeObserver(es=>es.forEach(e=>{
+    const k=e.target.id.slice(3); if(history[k]) drawChart(k);
+  }));
+  for(const k in SENSORS){
+    if(!SENSORS[k].chart) continue;
+    const cv=document.getElementById('cv-'+k);
+    ro.observe(cv);
+    cv.addEventListener('mousemove',ev=>{
+      const r=cv.getBoundingClientRect();
+      const n=history[k].length; if(n<2) return;
+      hover[k]=Math.min(n-1, Math.max(0, Math.round((ev.clientX-r.left)/r.width*(MAX_POINTS-1))));
+      if(hover[k]>=n) hover[k]=n-1;
+      drawChart(k);
+    });
+    cv.addEventListener('mouseleave',()=>{ delete hover[k]; drawChart(k); });
+  }
+}
+
+/* curva suave: Catmull-Rom convertido em bezier cubica */
+function smoothPath(ctx,pts){
+  ctx.moveTo(pts[0].x,pts[0].y);
+  for(let i=0;i<pts.length-1;i++){
+    const p0=pts[i-1]||pts[i], p1=pts[i], p2=pts[i+1], p3=pts[i+2]||p2;
+    ctx.bezierCurveTo(p1.x+(p2.x-p0.x)/6, p1.y+(p2.y-p0.y)/6,
+                      p2.x-(p3.x-p1.x)/6, p2.y-(p3.y-p1.y)/6, p2.x, p2.y);
+  }
+}
+
+function drawChart(key){
+  const cv=document.getElementById('cv-'+key); if(!cv) return;
+  const data=history[key], s=SENSORS[key];
+  const dpr=window.devicePixelRatio||1, w=cv.clientWidth, h=cv.clientHeight;
+  if(!w||!h) return;
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
+
+  if(data.length<2){
+    ctx.fillStyle='#b8c6bb'; ctx.font='12px system-ui';
+    ctx.fillText('Sem leituras ainda', 2, h/2+4);
+    return;
+  }
+  let min=Math.min(...data), max=Math.max(...data);
+  if(max-min<1e-6){ max=min+1; min=min-1; }
+  const pad=(max-min)*0.14; min-=pad; max+=pad;
+  document.getElementById('min-'+key).textContent=min.toFixed(1);
+  document.getElementById('max-'+key).textContent=max.toFixed(1);
+
+  const X=i=>(i/(MAX_POINTS-1))*w, Y=v=>h-((v-min)/(max-min))*h;
+  const pts=data.map((v,i)=>({x:X(i),y:Y(v)}));
+
+  ctx.strokeStyle='#eef2ec'; ctx.lineWidth=1;
+  for(let g=1;g<3;g++){ const y=Math.round(h*g/3)+.5; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+
+  const grad=ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,s.color+'3d'); grad.addColorStop(1,s.color+'00');
+  ctx.beginPath(); smoothPath(ctx,pts);
+  ctx.lineTo(pts[pts.length-1].x,h); ctx.lineTo(pts[0].x,h); ctx.closePath();
+  ctx.fillStyle=grad; ctx.fill();
+
+  ctx.beginPath(); smoothPath(ctx,pts);
+  ctx.strokeStyle=s.color; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.stroke();
+
+  const last=pts[pts.length-1];
+  ctx.beginPath(); ctx.arc(last.x,last.y,3.2,0,Math.PI*2); ctx.fillStyle=s.color; ctx.fill();
+  ctx.beginPath(); ctx.arc(last.x,last.y,3.2,0,Math.PI*2);
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1.6; ctx.stroke();
+
+  const hi=hover[key];
+  if(hi!==undefined && hi<data.length){
+    const p=pts[hi];
+    ctx.strokeStyle=s.color+'66'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(p.x,0); ctx.lineTo(p.x,h); ctx.stroke();
+    ctx.beginPath(); ctx.arc(p.x,p.y,3.5,0,Math.PI*2); ctx.fillStyle=s.color; ctx.fill();
+    const txt=data[hi].toFixed(2)+(s.unit==='lux'||s.unit==='ppm'||s.unit==='L/min'?' '+s.unit:'')
+            +(stamps[key][hi]?'  '+stamps[key][hi]:'');
+    ctx.font='11px system-ui';
+    const tw=ctx.measureText(txt).width+10;
+    let bx=Math.min(Math.max(p.x-tw/2,0),w-tw);
+    ctx.fillStyle='rgba(22,36,28,.92)';
+    ctx.beginPath(); ctx.roundRect(bx,2,tw,17,5); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.fillText(txt,bx+5,14);
+  }
+}
+
+function render(d){
+  for(const k in SENSORS){
+    const s=SENSORS[k], v=d[k], el=document.getElementById('val-'+k);
+    if(!el) continue;
+    if(typeof v==='boolean'){
+      el.textContent = v ? 'Baixo' : 'Normal';
+      el.className = 'state ' + (v?'bad':'good');
+    } else if(typeof v==='number'){
+      el.textContent = v.toFixed(s.unit==='lux'||s.unit==='ppm'||s.unit==='leitura ADC' ? 0 : 1);
+      if(s.chart){
+        history[k].push(v); stamps[k].push(new Date().toLocaleTimeString().slice(0,5));
+        if(history[k].length>MAX_POINTS){ history[k].shift(); stamps[k].shift(); }
+        drawChart(k);
+      }
+    }
+  }
+  describeCondition(d);
+}
+
+/* Uma frase em portugues simples sobre o estado da estufa.
+   E a primeira coisa que a pessoa le, entao diz o que importa:
+   se tem algo errado, e o que esta acontecendo agora. */
+function describeCondition(d){
+  const box=document.getElementById('condition'), main=document.getElementById('condLine'), sub=document.getElementById('condSub');
+  if(!main) return;
+  const partes=[];
+  if(d.bomba) partes.push('bomba funcionando'); else partes.push('bomba parada');
+  const modo={solid:'cor fixa',pulse:'pulsando',rainbow:'transicao de cores'}[d.ledMode||currentMode]||'cor fixa';
+  partes.push('iluminacao em '+modo);
+  if(d.nivelBaixo){
+    box.className='condition alert';
+    main.textContent='O reservatorio esta com nivel baixo.';
+    sub.textContent='A bomba fica travada ate o nivel normalizar. '+partes.join(', ')+'.';
+  } else {
+    box.className='condition';
+    const t=typeof d.tempAgua==='number'&&d.tempAgua>-100 ? d.tempAgua.toFixed(1)+' \u00b0C na agua' : 'leituras em andamento';
+    main.textContent='Estufa operando normalmente.';
+    sub.textContent=t+', '+partes.join(', ')+'.';
+  }
+}
+
+/* A bomba e decidida pela ESP-A. O que aparece aqui e sempre o
+   estado relatado por ela, nunca o que o botao tentou fazer. */
+function renderPump(d){
+  const led=document.getElementById('pumpLed'), txt=document.getElementById('pumpTxt'),
+        guard=document.getElementById('pumpGuard'), btn=document.getElementById('pumpOn');
+  if(!led) return;
+  if(d.bombaBloqueada){
+    led.className='led blocked'; txt.textContent='Travada pelo nivel baixo';
+    guard.classList.add('show'); btn.disabled=true;
+  } else {
+    guard.classList.remove('show'); btn.disabled=false;
+    if(d.bomba){
+      led.className='led on';
+      txt.textContent='Funcionando'+(d.bombaSegundos!==undefined?' ha '+d.bombaSegundos+' s':'');
+    } else { led.className='led'; txt.textContent='Parada'; }
+  }
+}
+
+/* Presets de cor.
+   Sol: 3000 K convertido de corpo negro — bonito, pouco util a planta.
+   Cultivo: vermelho ~660 nm + azul ~450 nm, que a clorofila absorve.
+   Meio-dia: 5500 K, branco neutro. */
+function preset(r,g,b){
+  document.getElementById('r').value=r;
+  document.getElementById('g').value=g;
+  document.getElementById('b').value=b;
+  document.getElementById('colorPicker').value='#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+  currentMode='solid'; markActive('solid'); applyColor();
+}
+function markActive(m){
+  ['solid','pulse','rainbow'].forEach(x=>document.getElementById('btn-'+x).classList.toggle('on',m===x));
+}
+function syncFromPicker(){
+  const hex=document.getElementById('colorPicker').value;
+  document.getElementById('r').value=parseInt(hex.substr(1,2),16);
+  document.getElementById('g').value=parseInt(hex.substr(3,2),16);
+  document.getElementById('b').value=parseInt(hex.substr(5,2),16);
+}
+
+
+/* ---- Gerador de dados falsos (random walk com reflexao) ---- */
+const sim={tempAgua:25.4,tempAr:26.8,umidade:62,lux:850,vazao:3.2,tds:340,phRaw:2040,nivelBaixo:false};
+const LIMITS={tempAgua:[22,29],tempAr:[20,34],umidade:[35,88],lux:[0,2200],vazao:[0,9],tds:[150,720],phRaw:[1400,2700]};
+let paused=false, currentMode='solid', baseR=0, baseG=255, baseB=136;
+let pumpReq=false, pumpStart=0;
+
+function walk(k,step){const[lo,hi]=LIMITS[k];sim[k]+=(Math.random()-.5)*step;
+ if(sim[k]<lo)sim[k]=lo+(lo-sim[k]); if(sim[k]>hi)sim[k]=hi-(sim[k]-hi); return sim[k];}
+function nextSample(){
+  walk('tempAgua',.18);walk('tempAr',.35);walk('umidade',1.4);walk('lux',90);
+  walk('vazao',.45);walk('tds',12);walk('phRaw',25);
+  if(Math.random()<.02) sim.nivelBaixo=!sim.nivelBaixo;
+  return {...sim, ...simPump(), ledMode:currentMode};
+}
+function spikeEvent(){sim.vazao=Math.min(LIMITS.vazao[1],sim.vazao+4.5);sim.tds=Math.min(LIMITS.tds[1],sim.tds+180);}
+function toggleNivel(){sim.nivelBaixo=!sim.nivelBaixo;}
+
+/* Reproduz as mesmas travas da ESP-A, para o bloqueio ser testavel aqui. */
+function setPump(on){ pumpReq=on; if(on) pumpStart=Date.now(); }
+function simPump(){
+  if(sim.nivelBaixo){ pumpReq=false; return {bomba:false,bombaBloqueada:true,bombaSegundos:0}; }
+  if(pumpReq && Date.now()-pumpStart>300000) pumpReq=false;
+  return {bomba:pumpReq,bombaBloqueada:false,bombaSegundos:pumpReq?Math.floor((Date.now()-pumpStart)/1000):0};
+}
+
+/* ---- Previa da fita: mesma matematica do firmware ---- */
+const NUM_PIXELS=30; let pulsePhase=0, rainbowHue=0;
+function hsvToRgb(h16){const h=(h16%65536)/65536*6,i=Math.floor(h),f=h-i,q=1-f;let r,g,b;
+ switch(i%6){case 0:r=1;g=f;b=0;break;case 1:r=q;g=1;b=0;break;case 2:r=0;g=1;b=f;break;
+ case 3:r=0;g=q;b=1;break;case 4:r=f;g=0;b=1;break;default:r=1;g=0;b=q;}
+ return{r:Math.round(r*255),g:Math.round(g*255),b:Math.round(b*255)};}
+function computePixels(){const px=[];
+ if(currentMode==='pulse'){pulsePhase+=.06;if(pulsePhase>2*Math.PI)pulsePhase-=2*Math.PI;
+  let f=(Math.sin(pulsePhase)+1)/2; f=.1+f*.9;
+  for(let i=0;i<NUM_PIXELS;i++)px.push({r:baseR*f,g:baseG*f,b:baseB*f});}
+ else if(currentMode==='rainbow'){for(let i=0;i<NUM_PIXELS;i++)px.push(hsvToRgb(rainbowHue+i*65536/NUM_PIXELS));rainbowHue+=300;}
+ else{for(let i=0;i<NUM_PIXELS;i++)px.push({r:baseR,g:baseG,b:baseB});}
+ return px;}
+function drawStrip(){const cv=document.getElementById('stripCv');
+ const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight; if(!w)return;
+ if(cv.width!==Math.round(w*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
+ const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+ const px=computePixels(),gap=2,cw=(w-gap*(NUM_PIXELS+1))/NUM_PIXELS,cy=h/2,rad=Math.min(cw,h-10)/2;
+ px.forEach((c,i)=>{const cx=gap+i*(cw+gap)+cw/2,col=`rgb(${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)})`;
+  ctx.shadowBlur=11;ctx.shadowColor=col;ctx.beginPath();ctx.arc(cx,cy,rad,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();ctx.shadowBlur=0;});}
+setInterval(drawStrip,20);
+
+function setMode(m){currentMode=m;markActive(m);applyColor();}
+function applyColor(){baseR=+document.getElementById('r').value;baseG=+document.getElementById('g').value;baseB=+document.getElementById('b').value;}
+document.getElementById('colorPicker').addEventListener('input',()=>{syncFromPicker();applyColor();});
+['r','g','b'].forEach(id=>document.getElementById(id).addEventListener('input',applyColor));
+
+function clearHistory(){Object.keys(history).forEach(k=>{history[k]=[];stamps[k]=[];});
+ Object.keys(SENSORS).forEach(k=>SENSORS[k].chart&&drawChart(k));}
+function togglePause(){paused=!paused;
+ document.getElementById('pauseBtn').textContent=paused?'Retomar simulacao':'Pausar simulacao';
+ document.getElementById('statusPill').className='pill '+(paused?'off':'live');
+ document.getElementById('statusTxt').textContent=paused?'Simulacao pausada':'Simulando';}
+function tick(){ if(paused) return; const d=nextSample(); render(d); renderPump(d); }
+
+buildCards(); markActive(currentMode);
+for(let i=0;i<MAX_POINTS;i++) render(nextSample());
+renderPump(simPump());
+setInterval(tick,2000);
+
+</script>
+</body>
+</html>
